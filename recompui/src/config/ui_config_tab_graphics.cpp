@@ -65,8 +65,8 @@ namespace recompui {
         };
 
         static EnumOptionVector aspect_ratio_options = {
-            {ultramodern::renderer::AspectRatio::Original, "Original"},
-            {ultramodern::renderer::AspectRatio::Expand, "Expand"},
+            {ultramodern::renderer::AspectRatio::Original, "Original", "4:3"},
+            {ultramodern::renderer::AspectRatio::Expand, "Expand", "16:9"},
             // {ultramodern::renderer::AspectRatio::Manual, "Manual"},
         };
 
@@ -93,6 +93,15 @@ namespace recompui {
             {ultramodern::renderer::HUDRatioMode::Original, "Original"},
             {ultramodern::renderer::HUDRatioMode::Clamp16x9, "Clamp16x9", "16:9"},
             {ultramodern::renderer::HUDRatioMode::Full, "Expand"},
+        };
+
+        // Indices match RT64::UserConfiguration::CRTFilter.
+        static EnumOptionVector crt_filter_options = {
+            {0, "Off", "Off"},
+            {1, "Scanlines", "Scanlines"},
+            {2, "ApertureGrille", "Aperture Grille"},
+            {3, "ShadowMask", "Shadow Mask"},
+            {4, "SlotMask", "Slot Mask"},
         };
 
         static const std::string get_downsampling_details(ultramodern::renderer::Resolution res_option, DownsamplingOption ds_option) {
@@ -177,6 +186,11 @@ namespace recompui {
             new_config.rr_manual_value = get_graphics_number_value<int>(graphics::options::rr_manual_value);
 
             new_config.ds_option = get_graphics_enum_value<int>(graphics::options::ds_option);
+            new_config.crt_option = get_graphics_enum_value<int>(graphics::options::crt_option);
+            new_config.crt_scanline_option = get_graphics_number_value<int>(graphics::options::crt_scanline_option);
+            new_config.crt_mask_option = get_graphics_number_value<int>(graphics::options::crt_mask_option);
+            new_config.crt_curvature_option = get_graphics_number_value<int>(graphics::options::crt_curvature_option);
+            new_config.crt_vignette_option = get_graphics_number_value<int>(graphics::options::crt_vignette_option);
 
             ultramodern::renderer::set_graphics_config(new_config);
         }
@@ -305,27 +319,9 @@ namespace recompui {
                 "Framerate",
                 get_framerate_text(60),
                 refresh_rate_options,
-                // [wcw fix] Default Original, not Display. WCW builds one visual frame from
-                // MULTIPLE RSP workloads, but RT64's frame matching assumes 1 workload = 1 frame
-                // (rt64_workload_queue.cpp TODO), so interpolated frames re-render only a slice
-                // of the frame — pure-black / partially-drawn presents (verified via swapchain
-                // readback: constant black bursts in menus at Display, zero at Original).
-                ultramodern::renderer::RefreshRate::Original
+                // [wcw fix] Default to the display rate: 60Hz frame interpolation works for this game.
+                ultramodern::renderer::RefreshRate::Display
             );
-            {
-                // [wcw fix] LOCK the framerate to Original (2026-07-05 decision). The black-frame
-                // flicker WAS fixed once (multi-workload frame grouping + present-fb interpolation
-                // target — preserved in git history at commit bd35fac and lib-patches there), but
-                // the interpolated frames still warp geometry badly: WCW is G_FORCEMTX-only, so
-                // RT64's heuristic transform matching lerps between mispaired full MVPs
-                // ("polygons bounce all over"). Until game-side matrix-group patches exist, the
-                // control is disabled in the UI and any saved config value (graphics.json AND its
-                // .bak) is coerced back to Original at parse time.
-                config.update_option_disabled(graphics::options::rr_option, true);
-                config.on_json_parse_option(graphics::options::rr_option, [](const nlohmann::json &) {
-                    return static_cast<uint32_t>(ultramodern::renderer::RefreshRate::Original);
-                });
-            }
 
             config.add_number_option(
                 graphics::options::rr_manual_value,
@@ -360,6 +356,48 @@ namespace recompui {
                 hud_ratio_mode_options,
                 ultramodern::renderer::HUDRatioMode::Clamp16x9
             );
+
+            config.add_enum_option(
+                graphics::options::crt_option,
+                "CRT Filter",
+                "Adds a CRT-style post filter to the final image. <recomp-color primary>Scanlines</recomp-color> darkens every other line, <recomp-color primary>Aperture Grille</recomp-color> adds vertical RGB phosphor stripes, and <recomp-color primary>Shadow Mask</recomp-color> / <recomp-color primary>Slot Mask</recomp-color> use dot and slotted phosphor patterns. "
+                "Pairs well with <recomp-color primary>Original</recomp-color> resolution and <recomp-color primary>Nearest</recomp-color> filtering.",
+                crt_filter_options,
+                0
+            );
+
+            config.add_percent_number_option(
+                graphics::options::crt_scanline_option,
+                "Scanline Strength",
+                "How strongly the CRT filter darkens the gaps between scanlines.",
+                45.0
+            );
+
+            config.add_percent_number_option(
+                graphics::options::crt_mask_option,
+                "Phosphor Mask Strength",
+                "How strongly the CRT filter applies the RGB phosphor pattern.",
+                45.0
+            );
+
+            config.add_percent_number_option(
+                graphics::options::crt_curvature_option,
+                "Screen Curvature",
+                "Barrel-distorts the image like a curved CRT tube. Zero keeps the image flat.",
+                0.0
+            );
+
+            config.add_percent_number_option(
+                graphics::options::crt_vignette_option,
+                "Screen Vignette",
+                "Darkens the edges of the picture for a tube-like falloff.",
+                0.0
+            );
+
+            config.add_option_disable_dependency(graphics::options::crt_scanline_option, graphics::options::crt_option, 0);
+            config.add_option_disable_dependency(graphics::options::crt_mask_option, graphics::options::crt_option, 0);
+            config.add_option_disable_dependency(graphics::options::crt_curvature_option, graphics::options::crt_option, 0);
+            config.add_option_disable_dependency(graphics::options::crt_vignette_option, graphics::options::crt_option, 0);
 
             config.add_enum_option(
                 graphics::options::api_option,

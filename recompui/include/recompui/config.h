@@ -61,6 +61,11 @@ namespace recompui {
                 inline const std::string hpfb_option = "hpfb_option";
                 inline const std::string rr_manual_value = "rr_manual_value";
                 inline const std::string ds_option = "ds_option";
+                inline const std::string crt_option = "crt_option";
+                inline const std::string crt_scanline_option = "crt_scanline_option";
+                inline const std::string crt_mask_option = "crt_mask_option";
+                inline const std::string crt_curvature_option = "crt_curvature_option";
+                inline const std::string crt_vignette_option = "crt_vignette_option";
             }
     
             void update_msaa_supported(bool supported);

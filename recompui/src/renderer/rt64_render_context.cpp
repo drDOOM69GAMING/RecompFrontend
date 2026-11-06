@@ -177,6 +177,14 @@ void set_application_user_config(RT64::Application* application, const ultramode
     application->userConfig.refreshRateTarget = config.rr_manual_value;
     application->userConfig.internalColorFormat = to_rt64(config.hpfb_option);
     application->userConfig.displayBuffering = RT64::UserConfiguration::DisplayBuffering::Triple;
+
+    const int crtCount = int(RT64::UserConfiguration::CRTFilter::OptionCount);
+    application->userConfig.crtFilter = static_cast<RT64::UserConfiguration::CRTFilter>(
+        std::clamp(config.crt_option, 0, crtCount - 1));
+    application->userConfig.crtScanlineIntensity = std::clamp(config.crt_scanline_option, 0, 100) / 100.0;
+    application->userConfig.crtMaskIntensity = std::clamp(config.crt_mask_option, 0, 100) / 100.0;
+    application->userConfig.crtCurvature = std::clamp(config.crt_curvature_option, 0, 100) / 100.0;
+    application->userConfig.crtVignette = std::clamp(config.crt_vignette_option, 0, 100) / 100.0;
 }
 
 ultramodern::renderer::SetupResult map_setup_result(RT64::Application::SetupResult rt64_result) {
